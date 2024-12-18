@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lagerberäkningar</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Lexend', sans-serif;
+            line-height: 1.6;
+            background-color: #000000;
+            color: #E1E5F2;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: #192F5D;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            flex-grow: 1;
+        }
+
+        h1 {
+            text-align: center;
+            color: #A7B8D1;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #A7B8D1;
+            font-size: 1.1rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #2C3E68;
+            border-radius: 10px;
+            background-color: #1A2C57;
+            color: #E1E5F2;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+            input:focus {
+                background-color: #2D4578;
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+                outline: none;
+            }
+
+        button {
+            width: 100%;
+            background-color: #1D3C76;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin-top: 10px;
+        }
+
+            button:hover {
+                background-color: #31578E;
+                transform: scale(1.05);
+            }
+
+            button:active {
+                transform: scale(0.95);
+            }
+
+        .results {
+            margin-top: 30px;
+            background: #192F5D;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        footer {
+            position: relative;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 1rem;
+            color: #A7B8D1;
+            padding: 20px;
+            background-color: #121F3C;
+            border-top: 2px solid #3A4F76;
+        }
+
+        .footer-text {
+            color: #E1E5F2;
+            font-size: 0.9rem;
+        }
+
+        .chart-container {
+            margin-top: 30px;
+            width: 100%;
+            height: 400px;
+            position: relative;
+            overflow: hidden;
+            background: #192F5D;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .container-scrollable {
+            max-height: calc(100vh - 160px);
+            overflow-y: auto;
+            display: none;
+            scrollbar-width: thin;
+            scrollbar-color: #3F51B5 transparent;
+        }
+
+            .container-scrollable.visible {
+                display: block;
+            }
+
+            .container-scrollable::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .container-scrollable::-webkit-scrollbar-thumb {
+                background-color: #3F51B5;
+                border-radius: 10px;
+            }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lagerberäkningar</h1>
+        <form id="calculationForm">
+            <label for="orderSarkostnad">Order Särkostnad (kr)</label>
+            <input type="number" id="orderSarkostnad" placeholder="Ange värde">
+
+            <label for="vardePerArtikel">Värde per artikel (kr)</label>
+            <input type="number" id="vardePerArtikel" placeholder="Ange värde">
+
+            <label for="lagerHallningsKostnad">Lagerhållningskostnad (%)</label>
+            <input type="number" id="lagerHallningsKostnad" step="0.01" placeholder="Ange värde">
+
+            <label for="arsForbrukning">Årsförbrukning (st)</label>
+            <input type="number" id="arsForbrukning" placeholder="Ange värde">
+
+            <label for="pafyllningsKvantitet">Påfyllningskvantitet (st)</label>
+            <input type="number" id="pafyllningsKvantitet" placeholder="Ange värde">
+
+            <label for="maxLager">Max lager (st)</label>
+            <input type="number" id="maxLager" placeholder="Ange värde">
+
+            <label for="sakerhetsLager">Säkerhetslager (st)</label>
+            <input type="number" id="sakerhetsLager" placeholder="Ange värde">
+
+            <label for="produktionsDagar">Produktionsdagar per år (dagar)</label>
+            <input type="number" id="produktionsDagar" placeholder="Ange värde">
+
+            <label for="inspektionsTid">Inspektionstid (dagar)</label>
+            <input type="number" id="inspektionsTid" placeholder="Ange värde">
+
+            <button type="button" onclick="performCalculations()">Beräkna</button>
+        </form>
+
+        <div class="results" id="results">
+            <h2>Resultat</h2>
+            <div id="resultsContent"></div>
+        </div>
+
+        <div class="container-scrollable" id="chartsContainer">
+            <!-- Stapeldiagram för resultat -->
+            <div class="chart-container">
+                <canvas id="resultBarChart"></canvas>
+            </div>
+
+            <!-- Linjediagram för lagerförändring under 30 dagar -->
+            <div class="chart-container">
+                <canvas id="lagerChangeChart30Days"></canvas>
+            </div>
+
+            <!-- Lagerförändring under 1 år -->
+            <div class="chart-container">
+                <canvas id="lagerChangeChart365Days"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p class="footer-text">Made by Daniel</p>
+    </footer>
+
+    <script>
+        function performCalculations() {
+            const orderSarkostnad = parseFloat(document.getElementById('orderSarkostnad').value);
+            const vardePerArtikel = parseFloat(document.getElementById('vardePerArtikel').value);
+            const lagerHallningsKostnad = parseFloat(document.getElementById('lagerHallningsKostnad').value);
+            const arsForbrukning = parseFloat(document.getElementById('arsForbrukning').value);
+            const pafyllningsKvantitet = parseFloat(document.getElementById('pafyllningsKvantitet').value);
+            const maxLager = parseFloat(document.getElementById('maxLager').value);
+            const sakerhetsLager = parseFloat(document.getElementById('sakerhetsLager').value);
+            const produktionsDagar = parseFloat(document.getElementById('produktionsDagar').value);
+            const inspektionsTid = parseFloat(document.getElementById('inspektionsTid').value);
+
+            const dagsforsaljning = arsForbrukning / 365;
+            const initialLager = maxLager - sakerhetsLager;
+
+            // Beräkningar
+            const antalInkopPerAr = arsForbrukning / pafyllningsKvantitet;
+            const genomsnittLager = (maxLager + sakerhetsLager) / 2;
+            const omsattningsHastighet = arsForbrukning / genomsnittLager;
+            const liggtidILager = 365 / omsattningsHastighet;
+            const bestallningsPunkt = dagsforsaljning * (produktionsDagar + inspektionsTid);
+            const lagerSarkostnad = orderSarkostnad * lagerHallningsKostnad / 100;
+            const optimalOrderKvantitet = Math.sqrt((2 * arsForbrukning * orderSarkostnad) / lagerHallningsKostnad);
+
+            // Visa resultat
+            const resultsContent = document.getElementById('resultsContent');
+            resultsContent.innerHTML = `
+                        <p><strong>Antal inköp per år:</strong> ${antalInkopPerAr.toFixed(2)}</p>
+                        <p><strong>Genomsnitt lager:</strong> ${genomsnittLager.toFixed(2)} st</p>
+                        <p><strong>Omsättningshastighet:</strong> ${omsattningsHastighet.toFixed(2)} st/år</p>
+                        <p><strong>Liggtid i lager:</strong> ${liggtidILager.toFixed(2)} dagar</p>
+                        <p><strong>Beställningspunkt:</strong> ${bestallningsPunkt.toFixed(2)} st</p>
+                        <p><strong>Lager särkostnad:</strong> ${lagerSarkostnad.toFixed(2)} kr</p>
+                        <p><strong>Optimal order kvantitet:</strong> ${optimalOrderKvantitet.toFixed(2)} st</p>
+                    `;
+
+            // Visa grafer och resultat container
+            document.getElementById('chartsContainer').classList.add('visible');
+            document.getElementById('results').style.display = 'block';
+
+            // Stapeldiagram för resultat
+            const resultBarChartCtx = document.getElementById('resultBarChart').getContext('2d');
+            new Chart(resultBarChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Antal inköp per år', 'Genomsnitt lager', 'Omsättningshastighet', 'Liggtid i lager', 'Beställningspunkt', 'Lager särkostnad', 'Optimal order kvantitet'],
+                    datasets: [{
+                        label: 'Beräknade värden',
+                        data: [antalInkopPerAr, genomsnittLager, omsattningsHastighet, liggtidILager, bestallningsPunkt, lagerSarkostnad, optimalOrderKvantitet],
+                        backgroundColor: '#2E84B7',
+                        borderColor: '#1B5A75',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#3A4F76'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2',
+                                // Dynamisk skala
+                                suggestedMax: Math.max(...[antalInkopPerAr, genomsnittLager, omsattningsHastighet, liggtidILager, bestallningsPunkt, lagerSarkostnad, optimalOrderKvantitet]) + 10
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2'
+                            },
+                            grid: {
+                                color: '#3A4F76'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Lagerförändring under 30 dagar
+            const lagerChangeChart30DaysCtx = document.getElementById('lagerChangeChart30Days').getContext('2d');
+            new Chart(lagerChangeChart30DaysCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: 30 }, (_, i) => i + 1),
+                    datasets: [{
+                        label: 'Lagerförändring under 30 dagar',
+                        data: Array.from({ length: 30 }, (_, i) => initialLager + Math.sin(i / 3) * 40), // Simulerad upp- och nedgång
+                        borderColor: '#A7D3F0',
+                        borderWidth: 3,
+                        fill: true,
+                        backgroundColor: 'rgba(167, 211, 240, 0.2)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2'
+                            },
+                            grid: {
+                                color: '#3A4F76'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2'
+                            },
+                            grid: {
+                                color: '#3A4F76'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Lagerförändring under 1 år
+            const lagerChangeChart365DaysCtx = document.getElementById('lagerChangeChart365Days').getContext('2d');
+            new Chart(lagerChangeChart365DaysCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: 12 }, (_, i) => ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'][i]),
+                    datasets: [{
+                        label: 'Lagerförändring under 1 år',
+                        data: Array.from({ length: 12 }, (_, i) => initialLager + Math.sin(i * Math.PI / 6) * 40), // Simulerad upp- och nedgång
+                        borderColor: '#A7D3F0',
+                        borderWidth: 3,
+                        fill: true,
+                        backgroundColor: 'rgba(167, 211, 240, 0.2)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2'
+                            },
+                            grid: {
+                                color: '#3A4F76'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    family: 'Lexend',
+                                    weight: 'normal'
+                                },
+                                color: '#E1E5F2'
+                            },
+                            grid: {
+                                color: '#3A4F76'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
